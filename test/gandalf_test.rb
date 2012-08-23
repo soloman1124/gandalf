@@ -14,14 +14,6 @@ class GandalfTest < ActionController::TestCase
       nil
     end
 
-    def url_after_denied_access_when_signed_in
-      raise SignedInRedirect
-    end
-
-    def url_after_denied_access_when_signed_out
-      raise SignedOutRedirect
-    end
-
     public :user_persistence_key, :user_persistence_token
   end
 
@@ -156,18 +148,20 @@ class GandalfTest < ActionController::TestCase
     assert_equal @controller.return_to, '/test'
   end
 
-  test "#deny_access should redirect to specific signed in path" do
+  test "#deny_access should raise AuthorizationRequired exception" do
     user = MiniTest::Mock.new
     @controller.current_user = user
 
-    assert_raises SignedInRedirect do
+    assert_raises Gandalf::AuthorizationRequired do
       @controller.deny_access
     end
   end
 
-  test "#deny_access should redirect to specific signed out path" do
-    assert_nil @controller.current_user
-    assert_raises SignedOutRedirect do
+  test "#deny_access should raise YouShallNotPass exception" do
+    user = MiniTest::Mock.new
+    @controller.current_user = user
+
+    assert_raises Gandalf::YouShallNotPass do
       @controller.deny_access
     end
   end
@@ -178,9 +172,9 @@ class GandalfTest < ActionController::TestCase
     @controller.authorize
   end
 
-  test "#authorize should redirect when signed out" do
+  test "#authorize should raise exception when signed out" do
     assert_nil @controller.current_user
-    assert_raises SignedOutRedirect do
+    assert_raises Gandalf::AuthorizationRequired do
       @controller.authorize
     end
   end

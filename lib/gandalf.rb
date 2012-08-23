@@ -4,6 +4,9 @@ require 'active_support/concern'
 module Gandalf
   extend ActiveSupport::Concern
 
+  class AuthorizationRequired < Exception; end
+  YouShallNotPass = AuthorizationRequired
+
   included do
     helper_method :current_user, :signed_in?, :signed_out?
     hide_action *(Gandalf.instance_methods)
@@ -74,16 +77,18 @@ module Gandalf
     session[:return_to] || params[:return_to]
   end
 
-  def deny_access flashes = {}
-    store_location
+  def deny_access
+    raise YouShallNotPass.new(<<-EOT)
+      This message would be rescued in your controller.
 
-    flashes.each{ |name, value| flash[name] = value }
-
-    if signed_in?
-      redirect_to url_after_denied_access_when_signed_in
-    else
-      redirect_to url_after_denied_access_when_signed_out
-    end
+      rescue_from 'Gandalf::AuthorizationRequired' do |exception|
+        # if signed_in?
+        #   redirect_to root_path
+        # else
+        #   redirect_to sign_in_path
+        # end
+      end
+    EOT
   end
 
   def authorize
@@ -118,15 +123,13 @@ module Gandalf
 protected
 
   def retrieve_user_for_request 
-    raise NotImplementedError
-  end
+    raise NotImplementedError.new(<<-EOT)
+      Gandalf requires you to have defined this method. i.e.
 
-  def url_after_denied_access_when_signed_in
-    raise NotImplementedError
-  end
-
-  def url_after_denied_access_when_signed_out
-    raise NotImplementedError
+      def retrieve_user_for_request id, token = nil
+        # User.find_by_id_and_persistence_token id, token
+      end
+    EOT
   end
 
   def user_persistence_key
