@@ -1,6 +1,6 @@
 # Gandalf
 
-Manages the state of the current user
+Standing between those users who are signed in and those who are not and whom amonst them shall pass.
 
 ## Installation
 
@@ -23,7 +23,19 @@ Simply include the module into your application controller as so:
 ```ruby
 class ApplicationController < ActionController::Base
   include Gandalf
-  
+
+  gandalf_retrieve_user do |controller|
+    User.find controller.session[:user_id]
+  end
+
+  gandalf_persist_user do |controller, user|
+    if user
+      controller.session[:user_id] = user.id
+    else
+      controller.session.delete :user_id
+    end
+  end
+
   ...
 end
 ```
@@ -35,3 +47,8 @@ end
 3. Commit your changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
+
+
+## License
+
+Licensed under the MIT License.

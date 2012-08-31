@@ -14,28 +14,38 @@ module Gandalf
 
   module ClassMethods
 
-    @@user_persistence_key = nil
-    def user_persistence_key
-      @@user_persistence_key
+    @@gandalf_retrieve_user = nil
+    def gandalf_retrieve_user method_name = nil, &block
+      if block_given?
+        raise ArgumentError, "Block must accept 1 argument" \
+          unless block.arity == 1 || block.arity == -1
+
+        @@gandalf_retrieve_user = block
+      elsif !method_name.nil?
+        @@gandalf_retrieve_user = method_name
+      else
+        @@gandalf_retrieve_user
+      end
     end
 
-    def user_persistence_key= value
-      @@user_persistence_key = value
-    end
+    @@gandalf_persist_user = nil
+    def gandalf_persist_user method_name = nil, &block
+      if block_given?
+        raise ArgumentError, "Block must accept 1 or 2 arguments" \
+          unless block.arity == 1 || block.arity == 2 || block.arity == -1
 
-    @@user_persistence_token = nil
-    def user_persistence_token
-      @@user_persistence_token
-    end
-
-    def user_persistence_token= value
-      @@user_persistence_token = value
+        @@gandalf_persist_user = block
+      elsif !method_name.nil?
+        @@gandalf_persist_user = method_name
+      else
+        @@gandalf_persist_user
+      end
     end
 
   end
 
   def current_user
-    @current_user ||= user_from_credentials
+    @current_user ||= retrieve_user
   end
 
   def current_user= user
@@ -43,7 +53,7 @@ module Gandalf
   end
 
   def sign_in user
-    store_credentials user
+    persist_user user
     self.current_user = user
   end
 
@@ -52,7 +62,7 @@ module Gandalf
   end
 
   def sign_out
-    clear_credentials
+    persist_user nil
     self.current_user = nil
   end
 
@@ -78,39 +88,24 @@ module Gandalf
   end
 
   def deny_access
-    raise YouShallNotPass.new(<<-EOT)
-      This message would be rescued in your controller.
+    raise YouShallNotPass, """
+This message should be rescued in your controller.
 
-      rescue_from 'Gandalf::AuthorizationRequired' do |exception|
-        # if signed_in?
-        #   redirect_to root_path
-        # else
-        #   redirect_to sign_in_path
-        # end
-      end
-    EOT
+<pre>
+rescue_from 'Gandalf::AuthorizationRequired' do |exception|
+  if signed_in?
+    redirect_to root_path
+  else
+    redirect_to sign_in_path
+  end
+end
+</pre>
+"""
+
   end
 
   def authorize
     deny_access unless signed_in?
-  end
-
-  def store_credentials user
-    credentials = [user.id]
-    
-    if user.respond_to?(user_persistence_token)
-      credentials << user.send(user_persistence_token)
-    end
-
-    cookies.signed[user_persistence_key] = credentials.compact
-  end
-
-  def stored_credentials
-    cookies.signed[user_persistence_key]
-  end
-
-  def clear_credentials
-    cookies.delete user_persistence_key
   end
 
   # CSRF protection in Rails >= 3.0.4
@@ -120,43 +115,60 @@ module Gandalf
     sign_out
   end
 
-protected
-
-  def retrieve_user_for_request 
-    raise NotImplementedError.new(<<-EOT)
-      Gandalf requires you to have defined this method. i.e.
-
-      def retrieve_user_for_request id, token = nil
-        # User.find_by_id_and_persistence_token id, token
-      end
-    EOT
-  end
-
-  def user_persistence_key
-    self.class.user_persistence_key || :user_id
-  end
-
-  def user_persistence_token
-    self.class.user_persistence_token || :persistence_token
-  end
-
 private
 
-  def user_from_credentials
-    retrieve_method = method(:retrieve_user_for_request)
+  def retrieve_user
+    case gandalf_retrieve_user
+    when Proc
+      gandalf_retrieve_user.call(self)
+    when Symbol, String
+      send(gandalf_retrieve_user)
+    else
+      raise NotImplementedError, """
+Gandalf doesn't know how to retrieve a user.
 
-    return retrieve_method.call if retrieve_method.arity == 0
-
-    credentials = stored_credentials || []
-
-    if retrieve_method.arity == -1
-      # do nothing
-    elsif credentials.size > retrieve_method.arity
-      credentials = credentials.slice 0, retrieve_method.arity
-    elsif credentials.size < retrieve_method.arity
-      credentials += Array.new(retrieve_method.arity - credentials.size)
+<pre>
+gandalf_retrieve_user do |controller|
+  User.find controller.cookie[:user_id]
+end
+</pre>
+"""
     end
-
-    retrieve_method.call *credentials
   end
+
+  def persist_user user
+    case gandalf_persist_user
+    when Proc
+      if gandalf_persist_user.arity == 1
+        gandalf_persist_user.call(user)
+      else
+        gandalf_persist_user.call(self, user)
+      end
+    when Symbol, String
+      send(gandalf_persist_user, user)
+    else
+      raise NotImplementedError, """
+No way for Gandalf to persist the user.
+
+<pre>
+gandalf_persist_user do |controller, user|
+  if user
+    controller.session[:user_id] = user.id
+  else
+    controller.session.delete :user_id
+  end
+end
+</pre>
+"""
+    end
+  end
+
+  def gandalf_retrieve_user
+    self.class.gandalf_retrieve_user
+  end
+
+  def gandalf_persist_user
+    self.class.gandalf_persist_user
+  end
+
 end

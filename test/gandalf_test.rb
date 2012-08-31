@@ -7,79 +7,66 @@ class GandalfTest < ActionController::TestCase
   class GandalfController < ActionController::Base
     include Gandalf
 
-    attr_reader :retrieve_user_for_request_arguments
+    attr_accessor :user
 
-    def retrieve_user_for_request *args
-      @retrieve_user_for_request_arguments = args
-      nil
-    end
-
-    public :user_persistence_key, :user_persistence_token
+    gandalf_retrieve_user :user
+    gandalf_persist_user :user=
   end
 
   tests GandalfController
 
-  def setup
-    @request.env[ActionDispatch::Cookies::TOKEN_KEY] = '5809d4cdffaa2dd486a17f82457bc1c1'
+  # def setup
+  #   @request.env[ActionDispatch::Cookies::TOKEN_KEY] = '5809d4cdffaa2dd486a17f82457bc1c1'
+  # end
+
+  test ".gandalf_retrieve_user should return the current value when no arguments are passed" do
+    assert_equal :user, @controller.class.gandalf_retrieve_user
   end
 
-  test "#user_persistence_key when class definition is nil should return default value" do
-    assert_nil @controller.class.user_persistence_key
-    assert_equal :user_id, @controller.user_persistence_key
-  end
-
-  test "#user_persistence_key when class definition is set should return the value defined on the class" do
-    begin
-      @controller.class.user_persistence_key = :test_id
-      assert_equal :test_id, @controller.user_persistence_key
-    ensure
-      @controller.class.user_persistence_key = nil
+  test ".gandalf_retrieve_user should raise an error when a block is given with an arity above 1" do
+    assert_raises ArgumentError do
+      @controller.class.gandalf_retrieve_user{|one, two|}
     end
   end
 
-  test "#user_persistence_token when class definition is nil should return default value" do
-    assert_nil @controller.class.user_persistence_token
-    assert_equal :persistence_token, @controller.user_persistence_token
+  test ".gandalf_retrieve_user should raise an error when a block is given with an arity is zero" do
+    assert_raises ArgumentError do
+      @controller.class.gandalf_retrieve_user{||}
+    end
   end
 
-  test "#user_persistence_token when class definition is set should return the value defined on the class" do
-    begin
-      @controller.class.user_persistence_token = :test_token
-      assert_equal :test_token, @controller.user_persistence_token
-    ensure
-      @controller.class.user_persistence_token = nil
+  test ".gandalf_persist_user should return the current value when no arguments are passed" do
+    assert_equal :user=, @controller.class.gandalf_persist_user
+  end
+
+  test ".gandalf_persist_user should raise an error when a block is given with an arity above 2" do
+    assert_raises ArgumentError do
+      @controller.class.gandalf_persist_user{|one, two, three|}
+    end
+  end
+
+  test ".gandalf_persist_user should raise an error when a block is given with an arity is zero" do
+    assert_raises ArgumentError do
+      @controller.class.gandalf_persist_user{||}
     end
   end
 
   test "#current_user should return the user" do
-    user = MiniTest::Mock.new
-    @controller.current_user = user
-
+    user = Object.new
+    @controller.user = user
     assert_equal user, @controller.current_user
   end
 
   test "#sign_in should set the current user" do
-    user = MiniTest::Mock.new
-    user.expect :id, 1
-    user.expect :persistence_token, nil
+    user = Object.new
     @controller.sign_in user
 
-    assert_equal user, @controller.current_user
-  end
-
-  test "#sign_in should set the cookie" do
-    user = MiniTest::Mock.new
-    user.expect :id, 1
-    user.expect :persistence_token, nil
-
-    assert_nil cookies[:user_id]
-    @controller.sign_in user
-    refute_nil cookies[:user_id]
+    assert_equal user, @controller.user
   end
 
   test "#signed_in? should return true when current_user is set" do
-    user = MiniTest::Mock.new
-    @controller.current_user = user
+    user = Object.new
+    @controller.user = user
 
     assert @controller.signed_in?, "Expected to be signed in"
   end
@@ -90,18 +77,11 @@ class GandalfTest < ActionController::TestCase
   end
 
   test "#sign_out should set current user to nil" do
-    user = MiniTest::Mock.new
-    @controller.current_user = user
+    user = Object.new
+    @controller.user = user
     @controller.sign_out
 
-    assert_nil @controller.current_user
-  end
-
-  test "#sign_out should remove the cookie" do
-    cookies[:user_id] = 1
-    @controller.sign_out
-
-    assert_nil cookies[:user_id]
+    assert_nil @controller.user
   end
 
   test "#signed_out? should return true when current user is nil" do
@@ -110,9 +90,7 @@ class GandalfTest < ActionController::TestCase
   end
 
   test "#signed_out? should return false when current user is set" do
-    user = MiniTest::Mock.new
-    @controller.current_user = user
-
+    @controller.current_user = Object.new
     refute @controller.signed_out?, "Expected to not be signed out"
   end
 
@@ -149,7 +127,7 @@ class GandalfTest < ActionController::TestCase
   end
 
   test "#deny_access should raise AuthorizationRequired exception" do
-    user = MiniTest::Mock.new
+    user = Object.new
     @controller.current_user = user
 
     assert_raises Gandalf::AuthorizationRequired do
@@ -158,7 +136,7 @@ class GandalfTest < ActionController::TestCase
   end
 
   test "#deny_access should raise YouShallNotPass exception" do
-    user = MiniTest::Mock.new
+    user = Object.new
     @controller.current_user = user
 
     assert_raises Gandalf::YouShallNotPass do
@@ -167,8 +145,7 @@ class GandalfTest < ActionController::TestCase
   end
 
   test "#authorize should do nothing when signed in" do
-    user = MiniTest::Mock.new
-    @controller.current_user = user
+    @controller.current_user = Object.new
     @controller.authorize
   end
 
@@ -179,58 +156,4 @@ class GandalfTest < ActionController::TestCase
     end
   end
 
-  test "#retrieve_user_for_request should receive the id as an argument" do
-    user = MiniTest::Mock.new
-    user.expect :id, 1
-    # sign in user to set the cookie
-    @controller.sign_in user
-    # clear the user but still keep the cookie
-    @controller.current_user = nil
-    # will force fetching the user from the cookie
-    @controller.current_user
-    refute_nil @controller.retrieve_user_for_request_arguments
-    assert_equal user.id, @controller.retrieve_user_for_request_arguments[0]
-  end
-
-  test "#store_credentials should store the user id in a signed cookie" do
-    user = Class.new do
-      def id; 1; end
-    end.new
-    @controller.store_credentials user
-
-    assert_equal [user.id], cookies.signed[:user_id]
-  end
-
-  test "#store_credentials should store the user persistence token in a signed cookie" do
-    user = MiniTest::Mock.new
-    user.expect :id, 1
-    user.expect :persistence_token, 'abc123'
-    @controller.store_credentials user
-
-    assert_equal [user.id, user.persistence_token], cookies.signed[:user_id]
-  end
-
-  test "#stored_credentials should return the user id and persistence token" do
-    cookies.signed[:user_id] = [1, 'abc123']
-    assert_equal [1, 'abc123'], @controller.stored_credentials
-  end
-
-  test "#stored_credentials when no user credentials exist should return nil" do
-    assert_nil cookies.signed[:user_id]
-    assert_nil @controller.stored_credentials
-  end
-
-  test "#retrieve_user_for_request should receive the token as an argument" do
-    user = MiniTest::Mock.new
-    user.expect :id, 1
-    user.expect :persistence_token, 'abc123'
-    # sign in user to set the cookie
-    @controller.sign_in user
-    # clear the user but still keep the cookie
-    @controller.current_user = nil
-    # will force fetching the user from the cookie
-    @controller.current_user
-    refute_nil @controller.retrieve_user_for_request_arguments
-    assert_equal user.persistence_token, @controller.retrieve_user_for_request_arguments[1]
-  end
 end
