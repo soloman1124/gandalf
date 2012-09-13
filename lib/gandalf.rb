@@ -75,8 +75,12 @@ module Gandalf
     clear_return_to
   end
 
-  def store_location
-    session[:return_to] = request.fullpath if request.get?
+  def store_location location = nil
+    if location
+      session[:return_to] = location
+    else  
+      session[:return_to] = request.fullpath if request.get?
+    end
   end
 
   def clear_return_to

@@ -109,6 +109,13 @@ class GandalfTest < ActionController::TestCase
     assert_nil session[:return_to]
   end
 
+  test "#store_location should store an arbitrary url if provided" do
+    @request.path = '/test'
+    @controller.store_location "http://www.everydayhero.com"
+
+    assert_equal "http://www.everydayhero.com", session[:return_to]
+  end
+
   test "#clear_return_to should delete the stored path" do
     session[:return_to] = '/test'
     @controller.clear_return_to
