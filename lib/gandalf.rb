@@ -4,8 +4,9 @@ require 'active_support/concern'
 module Gandalf
   extend ActiveSupport::Concern
 
-  class AuthorizationRequired < Exception; end
-  YouShallNotPass = AuthorizationRequired
+  class AuthenticationRequired < Exception; end
+  YouShallNotPass = AuthenticationRequired
+  AuthorizationRequired = AuthenticationRequired
 
   included do
     helper_method :current_user, :signed_in?, :signed_out?
@@ -78,7 +79,7 @@ module Gandalf
   def store_location location = nil
     if location
       session[:return_to] = location
-    else  
+    else
       session[:return_to] = request.fullpath if request.get?
     end
   end
@@ -96,7 +97,7 @@ module Gandalf
 This message should be rescued in your controller.
 
 <pre>
-rescue_from 'Gandalf::AuthorizationRequired' do |exception|
+rescue_from 'Gandalf::AuthenticationRequired' do |exception|
   if signed_in?
     redirect_to root_path
   else
@@ -108,10 +109,14 @@ end
 
   end
 
-  def authorize
+  def authenticate
     deny_access unless signed_in?
   end
 
+  def authorize
+    warn "[DEPRECATION] authorize is now deprecated, use authenticate instead."
+    authenticate
+  end
   # CSRF protection in Rails >= 3.0.4
   # http://weblog.rubyonrails.org/2011/2/8/csrf-protection-bypass-in-ruby-on-rails
   def handle_unverified_request

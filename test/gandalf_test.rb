@@ -15,10 +15,6 @@ class GandalfTest < ActionController::TestCase
 
   tests GandalfController
 
-  # def setup
-  #   @request.env[ActionDispatch::Cookies::TOKEN_KEY] = '5809d4cdffaa2dd486a17f82457bc1c1'
-  # end
-
   test ".gandalf_retrieve_user should return the current value when no arguments are passed" do
     assert_equal :user, @controller.class.gandalf_retrieve_user
   end
@@ -133,11 +129,11 @@ class GandalfTest < ActionController::TestCase
     assert_equal @controller.return_to, '/test'
   end
 
-  test "#deny_access should raise AuthorizationRequired exception" do
+  test "#deny_access should raise AuthenticationRequired exception" do
     user = Object.new
     @controller.current_user = user
 
-    assert_raises Gandalf::AuthorizationRequired do
+    assert_raises Gandalf::AuthenticationRequired do
       @controller.deny_access
     end
   end
@@ -151,15 +147,17 @@ class GandalfTest < ActionController::TestCase
     end
   end
 
-  test "#authorize should do nothing when signed in" do
+  test "#authenticate should do nothing when signed in" do
     @controller.current_user = Object.new
-    @controller.authorize
+    @controller.authenticate
   end
 
-  test "#authorize should raise exception when signed out" do
+  test "#authenticate should raise exception when signed out" do
     assert_nil @controller.current_user
-    assert_raises Gandalf::AuthorizationRequired do
-      @controller.authorize
+    assert_raises Gandalf::AuthenticationRequired do
+      @controller.authenticate
+    end
+  end
     end
   end
 
