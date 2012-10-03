@@ -1,16 +1,22 @@
+require "active_support/concern"
+require "gandalf/ability"
+require "gandalf/rule"
 require "gandalf/version"
-require 'active_support/concern'
 
 module Gandalf
   extend ActiveSupport::Concern
 
+  class AbilityNotImplemented < NotImplementedError; end
+  class Unauthorized < Exception; end
   class AuthenticationRequired < Exception; end
+
   YouShallNotPass = AuthenticationRequired
   AuthorizationRequired = AuthenticationRequired
 
   included do
-    helper_method :current_user, :signed_in?, :signed_out?
-    hide_action *(Gandalf.instance_methods)
+    delegate :can?, :cannot?, :to => :current_ability
+    helper_method :current_user, :signed_in?, :signed_out?, :can?, :cannot?
+    hide_action *(Gandalf.instance_methods + [:can?, :cannot?])
   end
 
   module ClassMethods
@@ -51,6 +57,12 @@ module Gandalf
 
   def current_user= user
     @current_user = user
+  end
+
+  def current_ability
+    @current_ability ||= if defined? ::Ability
+      ::Ability.new current_user
+    end
   end
 
   def sign_in user
@@ -117,6 +129,23 @@ end
     warn "[DEPRECATION] authorize is now deprecated, use authenticate instead."
     authenticate
   end
+
+  def authorize! action = action_name, subject = Object
+    unless current_ability
+      raise AbilityNotImplemented, """
+You have not defined an ability. To define an ability create an Object named Ability, or override current_ability in ApplicationController:
+
+<pre>
+def current_ability
+  @ability ||= MyCustomAbility.new current_user
+end
+</pre>
+"""
+    end
+
+    raise Unauthorized unless current_ability.can? action, subject
+  end
+
   # CSRF protection in Rails >= 3.0.4
   # http://weblog.rubyonrails.org/2011/2/8/csrf-protection-bypass-in-ruby-on-rails
   def handle_unverified_request
