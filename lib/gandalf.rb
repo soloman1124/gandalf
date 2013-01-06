@@ -1,26 +1,17 @@
 require "active_support/concern"
-require "gandalf/ability"
-require "gandalf/rule"
 require "gandalf/version"
 
 module Gandalf
   extend ActiveSupport::Concern
 
-  class AbilityNotImplemented < NotImplementedError; end
-  class Unauthorized < Exception; end
   class AuthenticationRequired < Exception; end
 
-  YouShallNotPass = AuthenticationRequired
-  AuthorizationRequired = AuthenticationRequired
-
   included do
-    delegate :can?, :cannot?, :to => :current_ability
-    helper_method :current_user, :signed_in?, :signed_out?, :can?, :cannot?
-    hide_action *(Gandalf.instance_methods + [:can?, :cannot?])
+    helper_method :current_user, :signed_in?, :signed_out?
+    hide_action *Gandalf.instance_methods
   end
 
   module ClassMethods
-
     @@gandalf_retrieve_user = nil
     def gandalf_retrieve_user method_name = nil, &block
       if block_given?
@@ -57,12 +48,6 @@ module Gandalf
 
   def current_user= user
     @current_user = user
-  end
-
-  def current_ability
-    @current_ability ||= if defined? ::Ability
-      ::Ability.new current_user
-    end
   end
 
   def sign_in user
@@ -105,45 +90,19 @@ module Gandalf
   end
 
   def deny_access
-    raise YouShallNotPass, """
+    raise AuthenticationRequired, """
 This message should be rescued in your controller.
 
 <pre>
-rescue_from 'Gandalf::AuthenticationRequired' do |exception|
-  if signed_in?
-    redirect_to root_path
-  else
-    redirect_to sign_in_path
-  end
+rescue_from Gandalf::AuthenticationRequired do |exception|
+  redirect_to sign_in_path
 end
 </pre>
 """
-
   end
 
   def authenticate
     deny_access unless signed_in?
-  end
-
-  def authorize
-    warn "[DEPRECATION] authorize is now deprecated, use authenticate instead."
-    authenticate
-  end
-
-  def authorize! action = action_name, subject = Object
-    unless current_ability
-      raise AbilityNotImplemented, """
-You have not defined an ability. To define an ability create an Object named Ability, or override current_ability in ApplicationController:
-
-<pre>
-def current_ability
-  @ability ||= MyCustomAbility.new current_user
-end
-</pre>
-"""
-    end
-
-    raise Unauthorized unless current_ability.can? action, subject
   end
 
   # CSRF protection in Rails >= 3.0.4

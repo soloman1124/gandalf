@@ -8,7 +8,6 @@ class GandalfTest < ActionController::TestCase
     include Gandalf
 
     attr_accessor :user
-    attr_writer :current_ability
 
     gandalf_retrieve_user :user
     gandalf_persist_user :user=
@@ -139,18 +138,9 @@ class GandalfTest < ActionController::TestCase
     end
   end
 
-  test "#deny_access should raise YouShallNotPass exception" do
-    user = Object.new
-    @controller.current_user = user
-
-    assert_raises Gandalf::YouShallNotPass do
-      @controller.deny_access
-    end
-  end
-
   test "#authenticate should do nothing when signed in" do
     @controller.current_user = Object.new
-    @controller.authenticate
+    assert_nil @controller.authenticate
   end
 
   test "#authenticate should raise exception when signed out" do
@@ -159,51 +149,4 @@ class GandalfTest < ActionController::TestCase
       @controller.authenticate
     end
   end
-
-  test "#current_ability should return nil" do
-    assert_nil @controller.current_ability
-  end
-
-  test "#current_ability should return ability" do
-    ability = Object.new
-    @controller.current_ability = ability
-
-    assert_equal ability, @controller.current_ability
-  end
-
-  test "#authorize! should raise except when current_ability is nil" do
-    assert_nil @controller.current_ability
-    assert_raises Gandalf::AbilityNotImplemented do
-      @controller.authorize! :test
-    end
-  end
-
-  test "#authorize! should raise except when action doesn't hit" do
-    ability = MiniTest::Mock.new
-    ability.expect :can?, false, [:test, Object]
-    @controller.current_ability = ability
-
-    assert_raises Gandalf::Unauthorized do
-      @controller.authorize! :test, Object
-    end
-  end
-
-  test "#can? should call ability's method" do
-    ability = MiniTest::Mock.new
-    ability.expect :can?, true, [:test]
-    @controller.current_ability = ability
-
-    assert @controller.can?(:test)
-    assert ability.verify
-  end
-
-  test "#cannot? should call ability's method" do
-    ability = MiniTest::Mock.new
-    ability.expect :cannot?, true, [:test]
-    @controller.current_ability = ability
-
-    assert @controller.cannot?(:test)
-    assert ability.verify
-  end
-
 end
