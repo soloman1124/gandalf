@@ -75,8 +75,8 @@ module Gandalf
   end
 
   def sign_out
-    persist_user nil
     self.current_user = nil
+    persist_user nil
   end
 
   def signed_out?
