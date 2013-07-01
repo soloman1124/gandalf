@@ -83,8 +83,8 @@ module Gandalf
     !signed_in?
   end
 
-  def redirect_back_or default
-    redirect_to return_to || default
+  def redirect_back_or default, response_status_and_flash = {}
+    redirect_to return_to || default, response_status_and_flash
     clear_return_to
   end
 
